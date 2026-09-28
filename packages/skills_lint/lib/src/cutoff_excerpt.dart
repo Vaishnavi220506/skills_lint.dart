@@ -11,48 +11,65 @@
 // across rules so downstream tooling that parses lint output doesn't
 // have to learn two formats.
 
+import 'length_limit.dart';
+
 /// Number of characters of context to show on either side of the cutoff.
 const int _excerptContextChars = 40;
 
-/// Builds a length-overflow diagnostic for a frontmatter field whose
-/// value is longer than [maxLength].
+/// Builds a one-line diagnostic for a frontmatter field whose value is longer
+/// than `limit.maxLength`, with a `|HERE|` excerpt at the cutoff.
 ///
-/// Output shape (placeholders shown in backticks):
-///
-///     `fieldName` field is `N` characters; maximum is `maxLength`.
-///     Cutoff at character `maxLength`: ...`context`|HERE|`context`...
-///     (see `docUrl`)
-///
-/// The `(see ...)` clause is omitted when [docUrl] is null. Newlines in
-/// the excerpt are escaped to `\n` so the message stays on one line.
+/// [docUrl] is omitted when [limit] is below the specification maximum,
+/// because that limit is a repository policy.
 String buildLengthDiagnostic({
   required String fieldName,
   required String value,
-  required int maxLength,
+  required LengthLimit limit,
   String? docUrl,
 }) {
-  final String excerpt = _buildCutoffExcerpt(value, maxLength);
-  final docsClause = docUrl != null ? ' (see $docUrl)' : '';
+  final String excerpt = _buildCutoffExcerpt(value, limit.maxLength);
+  final docsClause = limit.isBelowSpec || docUrl == null ? '' : ' (see $docUrl)';
+  final String maximumClause = switch (limit) {
+    LengthLimit(isAboveSpec: true) =>
+      'configured maximum is ${limit.maxLength} '
+          '(specification maximum is ${limit.specMaxLength})',
+    LengthLimit(isConfigured: true) => 'configured maximum is ${limit.maxLength}',
+    _ => 'maximum is ${limit.maxLength}',
+  };
   return '$fieldName field is ${value.length} characters; '
-      'maximum is $maxLength. '
-      'Cutoff at character $maxLength: $excerpt'
+      '$maximumClause. '
+      'Cutoff: $excerpt'
       '$docsClause';
 }
 
-/// Builds a rich Markdown length-overflow diagnostic for SARIF and PR review comments.
+/// Builds the Markdown form of [buildLengthDiagnostic], used in SARIF output
+/// and PR review comments.
 String buildLengthMarkdownDiagnostic({
   required String fieldName,
   required String value,
-  required int maxLength,
+  required LengthLimit limit,
   String? docUrl,
 }) {
+  final int maxLength = limit.maxLength;
   final int overCount = value.length - maxLength;
   final String excerpt = _buildCutoffExcerpt(value, maxLength);
   final String boldExcerpt = excerpt.replaceAll('|HERE|', '**|HERE|**');
-  final docsClause = docUrl != null ? '\n\n*(See [Agent Skills Specification]($docUrl))*' : '';
-  return '**Frontmatter `$fieldName` exceeds maximum allowed length.**\n\n'
-      '**${value.length}** characters (**$overCount** characters over the **$maxLength** limit).\n\n'
-      '**Cutoff excerpt (at character $maxLength):**\n'
+  final docsClause = limit.isBelowSpec || docUrl == null
+      ? ''
+      : '\n\n*(See [Agent Skills Specification]($docUrl))*';
+  final heading = limit.isConfigured
+      ? 'exceeds configured maximum length'
+      : 'exceeds maximum allowed length';
+  final String limitClause = switch (limit) {
+    LengthLimit(isAboveSpec: true) =>
+      'over the configured **$maxLength** limit; '
+          'the specification maximum is **${limit.specMaxLength}**',
+    LengthLimit(isConfigured: true) => 'over the configured **$maxLength** limit',
+    _ => 'over the **$maxLength** limit',
+  };
+  return '**Frontmatter `$fieldName` $heading.**\n\n'
+      '**${value.length}** characters (**$overCount** characters $limitClause).\n\n'
+      '**Cutoff excerpt:**\n'
       '> $boldExcerpt'
       '$docsClause';
 }

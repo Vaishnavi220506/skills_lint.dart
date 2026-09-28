@@ -88,13 +88,22 @@ governs how changes to these rules ship.
 - **Default severity:** error
 - **Fixable:** no
 - **What it checks:** the YAML frontmatter `description:` field is
-  at most 1024 characters.
-- **Diagnostic shape:**
-  `Description field is <N> characters; maximum is 1024. Cutoff at
-  character 1024: ...<40 chars before>|HERE|<40 chars after>... (see
+  at most `max-length` characters (1024 by default, the
+  Agent Skills specification limit).
+- **Diagnostic shape:** at the default limit of 1024:
+  `Description field is <N> characters; maximum is 1024. Cutoff:
+  ...<40 chars before>|HERE|<40 chars after>... (see
   https://agentskills.io/specification#description-field)`
-  The `|HERE|` marker pins the exact cutoff point so the author can
+  The `|HERE|` marker sits at character `<limit>`, so the author can
   see what slipped past the limit without having to count characters.
+- **Parameters:**
+  - `max-length` (positive integer): maximum description
+    length in characters. Defaults to `1024`. Set it in
+    `skills_lint.yaml`
+    (`description-too-long: { severity: error, max-length: 500 }`)
+    or with `--description-too-long-max-length=500`. The CLI
+    flag takes precedence over the configuration file. Zero, negative,
+    and non-integer values are rejected.
 - **Auto-fix behavior:** none. The fix is editorial; the linter
   refuses to silently truncate the author's prose.
 - **Disable:** `--no-description-too-long`.
@@ -183,7 +192,7 @@ governs how changes to these rules ship.
   - `Invalid YAML metadata: <parser error> (see
     https://agentskills.io/specification#frontmatter)`
   - `Missing required field: <field> (see ...)`
-  - `Compatibility field is <N> characters; maximum is 500. Cutoff at character 500: ...<context>|HERE|<context>... (see https://agentskills.io/specification#compatibility-field)`
+  - `Compatibility field is <N> characters; maximum is 500. Cutoff: ...<context>|HERE|<context>... (see https://agentskills.io/specification#compatibility-field)`
     — same shape as `description-too-long`, produced by the shared
     `buildLengthDiagnostic` helper.
 - **Auto-fix behavior:** none. A broken frontmatter block isn't

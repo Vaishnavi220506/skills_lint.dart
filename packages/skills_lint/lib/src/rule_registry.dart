@@ -5,6 +5,7 @@
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
+import 'models/parameter_constraint.dart';
 import 'models/rule_parameter_type.dart';
 import 'models/skill_rule.dart';
 import 'rules/absolute_paths_rule.dart';
@@ -38,6 +39,10 @@ class RuleRegistry {
       name: DescriptionLengthRule.ruleName,
       defaultSeverity: DescriptionLengthRule.defaultSeverity,
       help: 'Check if description is too long.',
+      parameterSchema: {DescriptionLengthRule.maxLengthParameter: RuleParameterType.integer},
+      parameterConstraints: {
+        DescriptionLengthRule.maxLengthParameter: DescriptionLengthRule.maxLengthConstraint,
+      },
     ),
     const CheckType(
       name: DisallowedFieldRule.ruleName,
@@ -81,11 +86,17 @@ class RuleRegistry {
   ];
 
   /// Creates a rule instance by name, or returns null if not a class-based rule.
+  ///
+  /// Throws an [ArgumentError] if a parameter in [parameters] that declares a
+  /// [ParameterConstraint] fails [CheckType.validateConstrainedParameters].
+  /// Configuration files and CLI flags are validated earlier; this check
+  /// covers parameters supplied through the Dart API.
   static SkillRule? createRule(
     String name,
     AnalysisSeverity severity, [
     CustomRuleParameters? parameters,
   ]) {
+    _checkParameterValues(name, parameters);
     switch (name) {
       case PathDoesNotExistRule.ruleName:
         RegExp? excludeRegExp;
@@ -97,7 +108,12 @@ class RuleRegistry {
       case AbsolutePathsRule.ruleName:
         return AbsolutePathsRule(severity: severity);
       case DescriptionLengthRule.ruleName:
-        return DescriptionLengthRule(severity: severity);
+        return DescriptionLengthRule(
+          severity: severity,
+          maxLength:
+              parameters?.getInt(DescriptionLengthRule.maxLengthParameter) ??
+              DescriptionLengthRule.maxDescriptionLength,
+        );
       case DisallowedFieldRule.ruleName:
         return DisallowedFieldRule(severity: severity);
       case PreventSkillsShPublishingRule.ruleName:
@@ -118,6 +134,17 @@ class RuleRegistry {
         return ValidYamlMetadataRule(severity: severity);
       default:
         return null;
+    }
+  }
+
+  static void _checkParameterValues(String name, CustomRuleParameters? parameters) {
+    if (parameters == null || parameters.isEmpty) {
+      return;
+    }
+    final CheckType? check = allChecks.where((CheckType c) => c.name == name).firstOrNull;
+    final List<String> errors = check?.validateConstrainedParameters(parameters) ?? const [];
+    if (errors.isNotEmpty) {
+      throw ArgumentError(errors.join('\n'));
     }
   }
 }

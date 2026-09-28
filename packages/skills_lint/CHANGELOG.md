@@ -1,3 +1,7 @@
+## 0.5.3-wip
+
+- Added a `max-length` parameter to the `description-too-long` rule to configure the maximum description length. Set it in `skills_lint.yaml` (`description-too-long: { max-length: 500 }`) or with the `--description-too-long-max-length=500` CLI flag.
+
 ## 0.5.2
 
 - Added programmatic YAML serialization support across configuration models, allowing configurations to be generated and formatted back into YAML.
