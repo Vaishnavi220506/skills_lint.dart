@@ -90,6 +90,11 @@ Then, add a case to `RuleRegistry.createRule` to instantiate your rule:
   }
 ```
 
+### Naming parameters
+
+- Config keys are kebab-case. Don't mix `_` and `-`.
+- The generated `--<rule>-<param>` flag must not repeat words from the rule name.
+
 ### 3. Handle Disabled by Default Rules (If applicable)
 If the rule is disabled by default (`defaultSeverity: AnalysisSeverity.disabled`), passing the flag `--check-my-new-rule` will automatically enable it with `AnalysisSeverity.error` severity (handled in `entry_point.dart`).
 
