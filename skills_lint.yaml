@@ -39,4 +39,7 @@ skills_lint:
     - path: ".agents/skills/contributor-pr-description"
       rules:
         prevent-skills-sh-publishing: error
+    - path: ".agents/skills/update-agent-guidance"
+      rules:
+        prevent-skills-sh-publishing: error
 
