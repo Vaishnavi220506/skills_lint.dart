@@ -20,6 +20,19 @@ import 'rule_registry.dart';
 
 final Logger _log = Logger('skills_lint');
 
+/// Identifies where configuration content came from for path resolution and diagnostics.
+@immutable
+class ConfigSource {
+  /// Uses [path] as the configuration file name and anchors paths to its directory.
+  const ConfigSource.file(String path) : _filePath = path, _directory = null;
+
+  /// Anchors paths to [path] when the configuration has no backing file.
+  const ConfigSource.directory(String path) : _filePath = null, _directory = path;
+
+  final String? _filePath;
+  final String? _directory;
+}
+
 /// Parses and loads YAML configuration for skills_lint.
 ///
 /// Target paths (`directories`, `individual_skills`) and `ignore_file` paths
@@ -67,23 +80,27 @@ class ConfigParser {
 
   /// Parses configuration settings from raw YAML [content].
   ///
-  /// [sourcePath] identifies the configuration file the [content] came from. It
-  /// provides file path context for error reporting, and anchors every target
-  /// path and ignore file in the returned [Configuration] to the directory that
-  /// contains that file.
+  /// [configSource] identifies either the file containing [content] or the
+  /// directory used to resolve paths in content without a backing file.
   ///
-  /// [baseDirectory] overrides the anchor directory derived from [sourcePath].
-  /// Supply it when [content] has no backing file but paths must still resolve
-  /// against a known directory.
-  ///
-  /// Callers that supply neither argument anchor paths to
-  /// [Directory.current].
-  static Configuration parse(String content, {String? sourcePath, String? baseDirectory}) {
+  /// Callers that supply no source anchor paths to [Directory.current].
+  static Configuration parse(
+    String content, {
+    ConfigSource? configSource,
+    @Deprecated('Use configSource: ConfigSource.file(path)') String? sourcePath,
+    @Deprecated('Use configSource: ConfigSource.directory(path)') String? baseDirectory,
+  }) {
+    _checkSourceArguments(configSource, sourcePath, baseDirectory);
     try {
       final Object? yaml = loadYaml(content);
-      return fromYaml(yaml, sourcePath: sourcePath, baseDirectory: baseDirectory);
+      return fromYaml(
+        yaml,
+        configSource: configSource,
+        sourcePath: sourcePath,
+        baseDirectory: baseDirectory,
+      );
     } on YamlException catch (e) {
-      final String source = sourcePath ?? 'content';
+      final String source = configSource?._filePath ?? sourcePath ?? 'content';
       final message = 'Failed to parse $source: $e';
       _log.severe(message);
       return Configuration(parsingErrors: <String>[message]);
@@ -95,9 +112,17 @@ class ConfigParser {
   /// Use this when the YAML is already decoded, such as a configuration nested
   /// inside a larger document. [parse] handles raw text.
   ///
-  /// Target paths and ignore files resolve against [baseDirectory], or the
-  /// directory holding [sourcePath], or [Directory.current].
-  static Configuration fromYaml(Object? yaml, {String? sourcePath, String? baseDirectory}) {
+  /// Target paths and ignore files resolve from [configSource], or from
+  /// [Directory.current] when no source is supplied.
+  static Configuration fromYaml(
+    Object? yaml, {
+    ConfigSource? configSource,
+    @Deprecated('Use configSource: ConfigSource.file(path)') String? sourcePath,
+    @Deprecated('Use configSource: ConfigSource.directory(path)') String? baseDirectory,
+  }) {
+    _checkSourceArguments(configSource, sourcePath, baseDirectory);
+    final String? filePath = configSource?._filePath ?? sourcePath;
+    final String? directory = configSource?._directory ?? baseDirectory;
     if (yaml == null) {
       return const Configuration();
     }
@@ -115,16 +140,14 @@ class ConfigParser {
         return Configuration(parsingErrors: <String>[message]);
       }
       final parsingErrors = <String>[];
-      // [baseDirectory] anchors the paths written inside the configuration.
-      // It does not locate the configuration file itself, so a relative
-      // [sourcePath] resolves against the working directory, the same way
-      // `loadConfig` resolves its `path`.
-      final String? sourceFile = sourcePath == null
+      // The directory source anchors paths inside the configuration. A relative
+      // file source resolves against the working directory, as loadConfig does.
+      final String? sourceFile = filePath == null
           ? null
-          : canonicalizePath(sourcePath, baseDirectory: Directory.current.path);
+          : canonicalizePath(filePath, baseDirectory: Directory.current.path);
       final String anchor = _resolveAnchorDirectory(
         sourceFile: sourceFile,
-        baseDirectory: baseDirectory,
+        baseDirectory: directory,
       );
 
       _validateTopLevelKeys(toolConfig, parsingErrors);
@@ -155,6 +178,16 @@ class ConfigParser {
       );
     }
     return const Configuration();
+  }
+
+  static void _checkSourceArguments(
+    ConfigSource? configSource,
+    String? sourcePath,
+    String? baseDirectory,
+  ) {
+    if (configSource != null && (sourcePath != null || baseDirectory != null)) {
+      throw ArgumentError('configSource cannot be combined with sourcePath or baseDirectory');
+    }
   }
 
   /// Returns the absolute directory that target paths and ignore files resolve
@@ -200,7 +233,7 @@ class ConfigParser {
 
     try {
       final String content = await configFile.readAsString();
-      return parse(content, sourcePath: resolvedPath);
+      return parse(content, configSource: ConfigSource.file(resolvedPath));
     } catch (e) {
       if (e is FileSystemException) {
         rethrow;

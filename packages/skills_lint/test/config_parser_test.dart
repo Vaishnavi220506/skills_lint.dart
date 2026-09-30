@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
 import 'package:skills_lint/src/models/target_declaration.dart';
 import 'package:test/test.dart';
+import 'package:yaml/yaml.dart';
 
 /// Builds a configuration document declaring [directories] and
 /// [individualSkills] as authored by a user.
@@ -34,6 +35,54 @@ void main() {
   final String projectRoot = p.normalize(p.absolute('custom/project/root'));
 
   group('ConfigParser.parse anchoring', () {
+    test('accepts a file source for paths and diagnostics', () {
+      final String file = p.join(projectRoot, 'nested', 'skills_lint.yaml');
+      final Configuration config = ConfigParser.parse(
+        configYaml(directories: [(path: 'skills', ignoreFile: null)]),
+        configSource: ConfigSource.file(file),
+      );
+
+      expect(config.directoryConfigs.single.path, p.join(projectRoot, 'nested', 'skills'));
+      expect(declarationOf(config.directoryConfigs.single)?.source?.file, file);
+
+      final Configuration invalid = ConfigParser.parse(
+        ': invalid: [',
+        configSource: ConfigSource.file(file),
+      );
+      expect(invalid.parsingErrors.single, contains(file));
+    });
+
+    test('accepts a directory source for in-memory content', () {
+      final Configuration config = ConfigParser.parse(
+        configYaml(directories: [(path: 'skills', ignoreFile: null)]),
+        configSource: ConfigSource.directory(projectRoot),
+      );
+
+      expect(config.directoryConfigs.single.path, p.join(projectRoot, 'skills'));
+      expect(declarationOf(config.directoryConfigs.single)?.source, isNull);
+    });
+
+    test('uses the same source for decoded YAML', () {
+      final Configuration config = ConfigParser.fromYaml(
+        loadYaml(configYaml(individualSkills: ['skill'])),
+        configSource: ConfigSource.directory(projectRoot),
+      );
+
+      expect(config.individualSkillConfigs.single.path, p.join(projectRoot, 'skill'));
+    });
+
+    test('rejects mixing configSource with deprecated source arguments', () {
+      expect(
+        () => ConfigParser.parse(
+          '',
+          configSource: ConfigSource.directory(projectRoot),
+          // ignore: deprecated_member_use_from_same_package
+          sourcePath: 'skills_lint.yaml',
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('anchors relative paths to the working directory by default', () {
       final Configuration config = ConfigParser.parse(
         configYaml(
