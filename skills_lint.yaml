@@ -24,6 +24,9 @@ skills_lint:
     - path: ".agents/skills/add-dart-lint-validation-rule"
       rules:
         prevent-skills-sh-publishing: error
+    - path: ".agents/skills/add-repo-convention-check"
+      rules:
+        prevent-skills-sh-publishing: error
     - path: ".agents/skills/check-downstream-consumers"
       rules:
         prevent-skills-sh-publishing: error
