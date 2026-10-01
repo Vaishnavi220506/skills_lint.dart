@@ -74,6 +74,19 @@ in the
 [`skills-lint-validation`](packages/skills_lint/skills/skills-lint-validation/SKILL.md)
 skill.
 
+When parsing YAML content directly, pass `configSource` to identify where
+relative paths resolve from. Use `ConfigSource.file(path)` for content read from
+a configuration file; the file path also appears in diagnostics. Use
+`ConfigSource.directory(path)` for content without a backing file. If neither
+is supplied, relative paths resolve from the working directory.
+
+```dart
+final config = ConfigParser.parse(
+  yamlContent,
+  configSource: ConfigSource.file('tool/skills_lint.yaml'),
+);
+```
+
 ## Dart SDK on `PATH`
 
 Non-interactive shells, such as an agent's persistent terminal, do not load your

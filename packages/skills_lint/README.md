@@ -119,19 +119,6 @@ also has a programmatic API for contributors who need to embed the
 linter in their own test suite — see
 [`CONTRIBUTING.md`](CONTRIBUTING.md#embedding-the-linter-in-tests).
 
-When parsing YAML content directly, pass `configSource` to identify where
-relative paths resolve from. Use `ConfigSource.file(path)` for content read from
-a configuration file; the file path also appears in diagnostics. Use
-`ConfigSource.directory(path)` for content without a backing file. If neither
-is supplied, relative paths resolve from the working directory.
-
-```dart
-final config = ConfigParser.parse(
-  yamlContent,
-  configSource: ConfigSource.file('tool/skills_lint.yaml'),
-);
-```
-
 ### 1. As a Command Line Tool with Arguments
 Run the linter against your skills or root skills directories by passing arguments.
 

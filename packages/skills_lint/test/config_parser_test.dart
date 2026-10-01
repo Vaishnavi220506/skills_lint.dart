@@ -76,7 +76,39 @@ void main() {
         () => ConfigParser.parse(
           '',
           configSource: ConfigSource.directory(projectRoot),
-          // ignore: deprecated_member_use_from_same_package
+          sourcePath: 'skills_lint.yaml',
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects mixing configSource with baseDirectory', () {
+      expect(
+        () => ConfigParser.parse(
+          '',
+          configSource: ConfigSource.directory(projectRoot),
+          baseDirectory: projectRoot,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects mixed sources for empty decoded YAML', () {
+      expect(
+        () => ConfigParser.fromYaml(
+          null,
+          configSource: ConfigSource.directory(projectRoot),
+          sourcePath: 'skills_lint.yaml',
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects mixed sources before parsing invalid YAML', () {
+      expect(
+        () => ConfigParser.parse(
+          'a: [',
+          configSource: ConfigSource.directory(projectRoot),
           sourcePath: 'skills_lint.yaml',
         ),
         throwsArgumentError,

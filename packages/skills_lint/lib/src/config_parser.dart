@@ -84,6 +84,8 @@ class ConfigParser {
   /// directory used to resolve paths in content without a backing file.
   ///
   /// Callers that supply no source anchor paths to [Directory.current].
+  /// If both deprecated [sourcePath] and [baseDirectory] are supplied,
+  /// [baseDirectory] sets the anchor and [sourcePath] labels diagnostics.
   static Configuration parse(
     String content, {
     ConfigSource? configSource,
@@ -114,6 +116,8 @@ class ConfigParser {
   ///
   /// Target paths and ignore files resolve from [configSource], or from
   /// [Directory.current] when no source is supplied.
+  /// If both deprecated [sourcePath] and [baseDirectory] are supplied,
+  /// [baseDirectory] sets the anchor and [sourcePath] labels diagnostics.
   static Configuration fromYaml(
     Object? yaml, {
     ConfigSource? configSource,
