@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:skills_lint/src/config_parser.dart';
+import 'package:skills_lint/src/config_source.dart';
 import 'package:skills_lint/src/models/target_declaration.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
@@ -161,13 +162,36 @@ void main() {
     });
 
     test('prefers baseDirectory over the directory holding sourcePath', () {
+      final String file = p.join(projectRoot, 'nested', 'skills_lint.yaml');
       final Configuration config = ConfigParser.parse(
-        configYaml(directories: [(path: 'skills', ignoreFile: null)]),
-        sourcePath: p.join(projectRoot, 'nested', 'skills_lint.yaml'),
+        configYaml(directories: [(path: 'skills', ignoreFile: 'ignore.json')]),
+        sourcePath: file,
         baseDirectory: projectRoot,
       );
 
       expect(config.directoryConfigs.single.path, p.join(projectRoot, 'skills'));
+      expect(config.directoryConfigs.single.ignoreFile, p.join(projectRoot, 'ignore.json'));
+      expect(declarationOf(config.directoryConfigs.single)?.source?.file, file);
+
+      final Configuration invalid = ConfigParser.parse(
+        'a: [',
+        sourcePath: file,
+        baseDirectory: projectRoot,
+      );
+      expect(invalid.parsingErrors.single, contains(file));
+    });
+
+    test('accepts both deprecated arguments for decoded YAML', () {
+      final String file = p.join(projectRoot, 'nested', 'skills_lint.yaml');
+      final Configuration config = ConfigParser.fromYaml(
+        loadYaml(configYaml(directories: [(path: 'skills', ignoreFile: 'ignore.json')])),
+        sourcePath: file,
+        baseDirectory: projectRoot,
+      );
+
+      expect(config.directoryConfigs.single.path, p.join(projectRoot, 'skills'));
+      expect(config.directoryConfigs.single.ignoreFile, p.join(projectRoot, 'ignore.json'));
+      expect(declarationOf(config.directoryConfigs.single)?.source?.file, file);
     });
 
     test('leaves absolute paths untouched', () {

@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import 'config_serializer.dart';
+import 'config_source.dart';
 import 'models/analysis_severity.dart';
 import 'models/check_type.dart';
 import 'models/custom_rule_parameters.dart';
@@ -19,19 +20,6 @@ import 'path_utils.dart';
 import 'rule_registry.dart';
 
 final Logger _log = Logger('skills_lint');
-
-/// Identifies where configuration content came from for path resolution and diagnostics.
-@immutable
-class ConfigSource {
-  /// Uses [path] as the configuration file name and anchors paths to its directory.
-  const ConfigSource.file(String path) : _filePath = path, _directory = null;
-
-  /// Anchors paths to [path] when the configuration has no backing file.
-  const ConfigSource.directory(String path) : _filePath = null, _directory = path;
-
-  final String? _filePath;
-  final String? _directory;
-}
 
 /// Parses and loads YAML configuration for skills_lint.
 ///
@@ -84,8 +72,11 @@ class ConfigParser {
   /// directory used to resolve paths in content without a backing file.
   ///
   /// Callers that supply no source anchor paths to [Directory.current].
-  /// If both deprecated [sourcePath] and [baseDirectory] are supplied,
-  /// [baseDirectory] sets the anchor and [sourcePath] labels diagnostics.
+  /// Without [configSource], callers can supply both deprecated [sourcePath] and
+  /// [baseDirectory]: [baseDirectory] sets the anchor and [sourcePath] labels diagnostics.
+  /// Throws [ArgumentError] if [configSource] is combined with either deprecated argument.
+  // TODO(Vaishnavi220506): Remove sourcePath and baseDirectory in 0.6.0.
+  // https://github.com/google/skills_lint.dart/issues/71
   static Configuration parse(
     String content, {
     ConfigSource? configSource,
@@ -102,7 +93,7 @@ class ConfigParser {
         baseDirectory: baseDirectory,
       );
     } on YamlException catch (e) {
-      final String source = configSource?._filePath ?? sourcePath ?? 'content';
+      final String source = configSource?.filePath ?? sourcePath ?? 'content';
       final message = 'Failed to parse $source: $e';
       _log.severe(message);
       return Configuration(parsingErrors: <String>[message]);
@@ -116,8 +107,9 @@ class ConfigParser {
   ///
   /// Target paths and ignore files resolve from [configSource], or from
   /// [Directory.current] when no source is supplied.
-  /// If both deprecated [sourcePath] and [baseDirectory] are supplied,
-  /// [baseDirectory] sets the anchor and [sourcePath] labels diagnostics.
+  /// Without [configSource], callers can supply both deprecated [sourcePath] and
+  /// [baseDirectory]: [baseDirectory] sets the anchor and [sourcePath] labels diagnostics.
+  /// Throws [ArgumentError] if [configSource] is combined with either deprecated argument.
   static Configuration fromYaml(
     Object? yaml, {
     ConfigSource? configSource,
@@ -125,8 +117,8 @@ class ConfigParser {
     @Deprecated('Use configSource: ConfigSource.directory(path)') String? baseDirectory,
   }) {
     _checkSourceArguments(configSource, sourcePath, baseDirectory);
-    final String? filePath = configSource?._filePath ?? sourcePath;
-    final String? directory = configSource?._directory ?? baseDirectory;
+    final String? filePath = configSource?.filePath ?? sourcePath;
+    final String? directory = configSource?.directoryPath ?? baseDirectory;
     if (yaml == null) {
       return const Configuration();
     }
